@@ -172,6 +172,76 @@ class Item_By_Id(Resource):
         return make_response({"msg":"Item not found"},400)
 api.add_resource(Item_By_Id,'/item/<int:id>')
 
+class Create_Bid(Resource):
+    @jwt_required()
+    def post(self):
+        data=request.get_json()
+        if 'amount' in data and 'item_id' in data:
+            new_bid=Bid(amount=data.get("amount"),bidder_id=get_jwt_identity(),item_id=data.get("item_id"))
+            db.session.add(new_bid)
+            db.session.commit()
+            return make_response(new_bid.to_dict(),201)
+        return make_response({"msg":"Required data is mising"},400)
+api.add_resource(Create_Bid,'/bid')
+
+# class Create_Reports(Resource):
+#     @jwt_required()
+#     def post(self):
+        
+class Create_Get_Logs(Resource):
+    @jwt_required()
+    def get(self):
+        audit_logs=AuditLog.query.all()
+        return make_response([log.to_dict() for log in audit_logs],200)
+    
+    @jwt_required()
+    def post(self):
+        data=request.get_json()
+        if "action" in data:
+            new_log=AuditLog(action=data.get("action"),user_id=get_jwt_identity())
+            db.session.add(new_log)
+            db.session.commit()
+            return make_response(new_log.to_dict(),201)
+        return make_response({"msg":"Required data missing"},400)
+api.add_resource(Create_Get_Logs,'/audit-log')
+
+class Audit_Log_By_User_Id(Resource):
+    @jwt_required()
+    def get(self,id): #generates logs of a specific user 
+        user=User.query.filter_by(id=id).first()
+        if user:
+            logs=AuditLog.query.filter_by(user_id=id).all()
+            return make_response([log.to_dict() for log in logs],200)
+        return make_response({"msg":"User not found"},400)
+    
+    @jwt_required()
+    def delete(self,id):#deletes all logs by a user
+        user=User.query.filter_by(id=id).first()
+        if user:
+            logs=AuditLog.query.filter_by(user_id=id).all()
+            for log in logs:
+                db.session.delete(log)
+                db.session.commit()
+            return make_response({"msg":"Logs deleted successfully"},204)
+        return make_response({"msg":"User not found"},400)
+api.add_resource(Audit_Log_By_User_Id,'/audit-user/<int:id>')
+
+class Create_Get_Notifications(Resource):
+    @jwt_required()
+    def create(self): #generates notifications specific to a user
+        data=request.get_json()
+        if 'message' in data and 'user_id' in data:
+            new_notification=Notification(message=data.get("message"),user_id=data.get("user_id"))
+            db.session.add(new_notification)
+            db.session.commit()
+            return make_response(new_notification.to_dict(),201)
+        return make_response({"msg":"Required data is missing"},400)
+    
+    @jwt_required()
+    def get(self):
+        notifications=Notification.query.all()
+        return make_response([notification.to_dict() for notification in notifications],200)
+api.add_resource(Create_Get_Notifications,'/notifications')
 
 if __name__ == '__main__':
     app.run(debug=True)
